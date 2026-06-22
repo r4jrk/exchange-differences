@@ -1,9 +1,6 @@
 package pl.net.brach;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.URL;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -16,20 +13,28 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.ResourceBundle;
+import javafx.concurrent.Task;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.StackPane;
 import javafx.util.StringConverter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import pl.net.brach.commons.data.CurrencyRepository;
+import pl.net.brach.commons.nbp.NbpClient;
+import pl.net.brach.commons.nbp.NbpRate;
+import pl.net.brach.commons.ui.Dialogs;
+import pl.net.brach.commons.ui.R4TechBannerView;
 
 public class MainWindowController implements Initializable {
 
     private static final List<String> DATA_FORMATS = Arrays.asList("dd-MM-yyyy", "dd/MM/yyyy", "ddMMyyyy", "dd.MM.yyyy",
             "yyyy-MM-dd", "yyyy/MM/dd", "yyyyMMdd", "yyyy.MM.dd");
 
-    private static final String NBP_API_LINK = "http://api.nbp.pl/api/exchangerates/rates/a/";
-    private static final int NBP_API_RETRY_COUNT = 30;
-    private static final DateTimeFormatter NBP_API_DATA_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH);
+    private static final Logger log = LoggerFactory.getLogger(MainWindowController.class);
+
+    private final NbpClient nbpClient = new NbpClient();
 
     @FXML
     private Button bClose;
@@ -43,9 +48,13 @@ public class MainWindowController implements Initializable {
     private DatePicker dpInvoiceDate;
     @FXML
     private ComboBox<String> cbCurrencies;
+    @FXML
+    private StackPane bannerContainer;
 
     @Override
     public void initialize(URL url, ResourceBundle rb) {
+        bannerContainer.getChildren().add(new R4TechBannerView());
+
         addCurrenciesToComboBox();
 
         dpInvoiceDate.getEditor().addEventFilter(KeyEvent.KEY_PRESSED, (KeyEvent keyEvent) -> {
@@ -77,18 +86,15 @@ public class MainWindowController implements Initializable {
         });
 
         dpTransactionDate.getEditor().textProperty().addListener((observable, oldValue, newValue) -> {
-            if (!newValue.matches(".{11}")) {
-                dpTransactionDate.getEditor().setText(newValue.replaceAll("[^\\d,-\\/]{10}", ""));
-            } else {
-                dpTransactionDate.getEditor().setText("");
+            if (newValue.length() > 10) {
+                // Cap at a full date (dd-MM-yyyy) instead of wiping the whole field.
+                dpTransactionDate.getEditor().setText(newValue.substring(0, 10));
             }
         });
 
         dpInvoiceDate.getEditor().textProperty().addListener((observable, oldValue, newValue) -> {
-            if (!newValue.matches(".{11}")) {
-                dpInvoiceDate.getEditor().setText(newValue.replaceAll("[^\\d,-\\/]{10}", ""));
-            } else {
-                dpInvoiceDate.getEditor().setText("");
+            if (newValue.length() > 10) {
+                dpInvoiceDate.getEditor().setText(newValue.substring(0, 10));
             }
         });
 
@@ -164,10 +170,10 @@ public class MainWindowController implements Initializable {
     }
 
     public void addCurrenciesToComboBox() {
-        Currency currency = new Currency();
+        CurrencyRepository currencyRepository = new CurrencyRepository();
 
         cbCurrencies.getItems().clear();
-        cbCurrencies.getItems().addAll(currency.getCurrencies());
+        cbCurrencies.getItems().addAll(currencyRepository.getCurrencies());
         cbCurrencies.getSelectionModel().selectFirst();
     }
 
@@ -185,104 +191,74 @@ public class MainWindowController implements Initializable {
     }
 
     @FXML
-    private void okClicked() throws IOException {
+    private void okClicked() {
         //Get user input data
         if (dpTransactionDate.getEditor().getText().equals("")) {
             System.out.println("No data was provided. Aborting...");
-        } else {
-            LocalDate dInvoiceDate = extractDate(dpInvoiceDate);
-            LocalDate dTransactionDate = extractDate(dpTransactionDate);
-
-            String currency = cbCurrencies.getValue();
-
-            String fetchedInvoiceData = getData(dInvoiceDate, currency);
-            String fetchedTransactionData = getData(dTransactionDate, currency);
-
-            String invoiceRate = getRate(fetchedInvoiceData);
-            double calculatedInvoiceAmount = calculateAmount(invoiceRate);
-
-            String transactionRate = getRate(fetchedTransactionData);
-            double calculatedTransactionAmount = calculateAmount(transactionRate);
-
-            double exchangeRatesDifference = calculatedInvoiceAmount - calculatedTransactionAmount;
-
-            String[] args = new String[13];
-
-            DecimalFormat format = new DecimalFormat("###,##0.00");
-
-            args[0] = format.format(Double.parseDouble(tbTransactionAmount.getText().replace(",", "."))) + " " + cbCurrencies.getValue();
-            args[1] = getTableNumber(fetchedInvoiceData);
-            args[2] = getDate(fetchedInvoiceData);
-            args[3] = invoiceRate.replace(".", ",");
-            args[4] = format.format(calculatedInvoiceAmount) + " zł";
-            args[5] = getTableNumber(fetchedTransactionData);
-            args[6] = getDate(fetchedTransactionData);
-            args[7] = transactionRate.replace(".", ",");
-            args[8] = format.format(calculatedTransactionAmount) + " zł";
-            args[9] = String.format("%.2f", exchangeRatesDifference);
-            args[10] = getCommentary(exchangeRatesDifference);
-            args[11] = format.format(Math.abs(calculatedInvoiceAmount - calculatedTransactionAmount)) + " zł";
-
-            args[12] = currency;
-
-            ExchangeDifferences.displaySummary(args);
+            return;
         }
-    }
 
-    private String getData(LocalDate dData, String sCurrencyInput) throws IOException {
-        String dataFetched = "";
+        // Capture inputs on the FX thread; only the two network calls run in the background.
+        final LocalDate dInvoiceDate = extractDate(dpInvoiceDate);
+        final LocalDate dTransactionDate = extractDate(dpTransactionDate);
+        final String currency = cbCurrencies.getValue();
 
-        boolean retry = true;
-
-        int loopCount = 0;
-
-        while (retry) {
-            //Get the data from NBP API
-            try {
-                dData = dData.minusDays(1);
-                String formattedDate = dData.format(NBP_API_DATA_FORMAT);
-
-                URL nbpApiUrl = new URL(NBP_API_LINK + sCurrencyInput + "/" + formattedDate + "/?format=json");
-
-                try (BufferedReader in = new BufferedReader(new InputStreamReader(nbpApiUrl.openStream()))) {
-                    dataFetched = in.readLine();
-                }
-
-                return dataFetched;
-            } catch (FileNotFoundException ex) {
-                if (loopCount > NBP_API_RETRY_COUNT) {
-                    System.out.println("Retry count exceeded");
-                    retry = false;
-                }
-                loopCount++;
+        Task<NbpRate[]> fetchRates = new Task<>() {
+            @Override
+            protected NbpRate[] call() throws Exception {
+                NbpRate invoiceRate = nbpClient.fetchRatePrecedingDate(currency, dInvoiceDate);
+                NbpRate transactionRate = nbpClient.fetchRatePrecedingDate(currency, dTransactionDate);
+                return new NbpRate[]{invoiceRate, transactionRate};
             }
-        }
-        return dataFetched;
+        };
+
+        fetchRates.setOnSucceeded(event -> {
+            NbpRate[] rates = fetchRates.getValue();
+            showResult(rates[0], rates[1], currency);
+        });
+        fetchRates.setOnFailed(event -> {
+            log.error("Nie udało się pobrać kursów z NBP", fetchRates.getException());
+            Dialogs.error("Nie udało się pobrać kursów z NBP",
+                    "Sprawdź połączenie z internetem i spróbuj ponownie.");
+        });
+
+        Thread worker = new Thread(fetchRates, "nbp-fetch");
+        worker.setDaemon(true);
+        worker.start();
     }
 
-    private static String getTableNumber(String sData) {
-        //VERY dirty workaround for NOKs ONLY. That whole stuff (fetching data, etc.) should be rebuilt to handle JSONs properly
-        if (sData.indexOf("no") == 32) {
-            return sData.substring(sData.indexOf("no") + 39, sData.indexOf("[") + 22);
-        } else {
-            return sData.substring(sData.indexOf("no") + 5, sData.indexOf("[") + 22);
-        }
-    }
+    /** Runs on the FX thread (Task onSucceeded): builds the summary args and shows the summary. */
+    private void showResult(NbpRate invoice, NbpRate transaction, String currency) {
+        String invoiceRate = invoice.midPlain();
+        String transactionRate = transaction.midPlain();
 
-    private static String getDate(String sData) {
-        return sData.substring(sData.indexOf("effectiveDate") + 16, sData.indexOf("[") + 51);
-    }
+        double calculatedInvoiceAmount = calculateAmount(invoiceRate);
+        double calculatedTransactionAmount = calculateAmount(transactionRate);
+        double exchangeRatesDifference = calculatedInvoiceAmount - calculatedTransactionAmount;
 
-    private String getRate(String sData) {
-        //Check if the currency is not in 1/100 PLN and adjust if necessary
-        String sRate = sData.substring(sData.indexOf("mid") + 5, sData.indexOf("[") + 67);
-        if (sRate.charAt(sRate.length() - 1) == ']') {
-            sRate = sRate.substring(0, sRate.length() - 1);
+        String[] args = new String[13];
+        DecimalFormat format = new DecimalFormat("###,##0.00");
+
+        args[0] = format.format(Double.parseDouble(tbTransactionAmount.getText().replace(",", "."))) + " " + currency;
+        args[1] = invoice.tableNumber();
+        args[2] = invoice.effectiveDate().toString();
+        args[3] = invoiceRate.replace(".", ",");
+        args[4] = format.format(calculatedInvoiceAmount) + " zł";
+        args[5] = transaction.tableNumber();
+        args[6] = transaction.effectiveDate().toString();
+        args[7] = transactionRate.replace(".", ",");
+        args[8] = format.format(calculatedTransactionAmount) + " zł";
+        args[9] = String.format("%.2f", exchangeRatesDifference);
+        args[10] = getCommentary(exchangeRatesDifference);
+        args[11] = format.format(Math.abs(calculatedInvoiceAmount - calculatedTransactionAmount)) + " zł";
+        args[12] = currency;
+
+        try {
+            ExchangeDifferences.displaySummary(args);
+        } catch (IOException e) {
+            log.error("Nie udało się otworzyć podsumowania", e);
+            Dialogs.error("Błąd", "Nie udało się otworzyć okna podsumowania.");
         }
-        if (sRate.charAt(sRate.length() - 1) == '}') {
-            sRate = sRate.substring(0, sRate.length() - 1);
-        }
-        return sRate;
     }
 
     private double calculateAmount(String sRate) {

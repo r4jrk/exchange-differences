@@ -35,7 +35,13 @@ import javax.print.attribute.standard.JobName;
 import javax.print.attribute.standard.MediaPrintableArea;
 import javax.print.attribute.standard.OrientationRequested;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import pl.net.brach.commons.ui.Dialogs;
+
 public class SummaryController implements Initializable {
+
+    private static final Logger log = LoggerFactory.getLogger(SummaryController.class);
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd-MM-yyyy", Locale.ENGLISH);
 
@@ -229,11 +235,21 @@ public class SummaryController implements Initializable {
 
         PrinterJob printerJob = PrinterJob.getPrinterJob();
 
-        if (printerJob.getPrintService().getName().equals(ExchangeDifferences.PRIMARY_PRINTER_NAME)) {
-            printerJob.setPrintService(getPrintService(ExchangeDifferences.PRIMARY_PRINTER_NAME));
-        } else {
-            printerJob.setPrintService(getPrintService(ExchangeDifferences.SECONDARY_PRINTER_NAME));
+        PrintService defaultService = printerJob.getPrintService(); // null when no printer is installed
+        String defaultName = defaultService != null ? defaultService.getName() : "";
+        PrintService printService = defaultName.equals(ExchangeDifferences.PRIMARY_PRINTER_NAME)
+                ? getPrintService(ExchangeDifferences.PRIMARY_PRINTER_NAME)
+                : getPrintService(ExchangeDifferences.SECONDARY_PRINTER_NAME);
+
+        if (printService == null) {
+            log.warn("Nie znaleziono drukarki etykiet ({} ani {})",
+                    ExchangeDifferences.PRIMARY_PRINTER_NAME, ExchangeDifferences.SECONDARY_PRINTER_NAME);
+            Dialogs.error("Nie znaleziono drukarki",
+                    "Nie znaleziono drukarki etykiet: " + ExchangeDifferences.PRIMARY_PRINTER_NAME
+                            + " ani " + ExchangeDifferences.SECONDARY_PRINTER_NAME + ".");
+            return;
         }
+        printerJob.setPrintService(printService);
 
         // stringArrayListToPrint is split to two lists, to generate two labels to be printed.
         // Anyone knows how to fix that and just let the printing handle it?

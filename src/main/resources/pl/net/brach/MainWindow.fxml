@@ -16,6 +16,7 @@
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
@@ -103,9 +104,7 @@
    <top>
       <HBox alignment="CENTER" prefHeight="70.0" prefWidth="530.0" BorderPane.alignment="CENTER">
          <Pane prefHeight="200.0" prefWidth="80.0"/>
-         <ImageView id="brachLogoImageView" fitHeight="66.0" fitWidth="260.0" pickOnBounds="true" preserveRatio="true">
-            <Image url="@brachlogo.png"/>
-         </ImageView>
+         <StackPane fx:id="bannerContainer" prefHeight="66.0" prefWidth="260.0"/>
          <Label id="lMainHeader" prefHeight="30.0" prefWidth="311.0" text="Różnice kursowe">
             <font>
                <Font size="24.0"/>
