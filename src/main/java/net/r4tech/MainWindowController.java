@@ -1,4 +1,4 @@
-package pl.net.brach;
+package net.r4tech;
 
 import java.io.IOException;
 import java.net.URL;
@@ -21,11 +21,12 @@ import javafx.scene.layout.StackPane;
 import javafx.util.StringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pl.net.brach.commons.data.CurrencyRepository;
-import pl.net.brach.commons.nbp.NbpClient;
-import pl.net.brach.commons.nbp.NbpRate;
-import pl.net.brach.commons.ui.Dialogs;
-import pl.net.brach.commons.ui.R4TechBannerView;
+import net.r4tech.commons.data.CurrencyRepository;
+import net.r4tech.commons.nbp.NbpClient;
+import net.r4tech.commons.nbp.NbpRate;
+import net.r4tech.commons.ui.ContactSupport;
+import net.r4tech.commons.ui.Dialogs;
+import net.r4tech.commons.ui.R4TechBannerView;
 
 public class MainWindowController implements Initializable {
 
@@ -53,7 +54,7 @@ public class MainWindowController implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle rb) {
-        bannerContainer.getChildren().add(new R4TechBannerView());
+        bannerContainer.getChildren().add(new R4TechBannerView(true));
 
         addCurrenciesToComboBox();
 
@@ -287,5 +288,10 @@ public class MainWindowController implements Initializable {
     private void closeClicked() {
         Stage stage = (Stage) bClose.getScene().getWindow();
         stage.close();
+    }
+
+    @FXML
+    private void footerClicked() {
+        ContactSupport.emailAboutApp(ExchangeDifferences.R4_TECH_TITLE);
     }
 }

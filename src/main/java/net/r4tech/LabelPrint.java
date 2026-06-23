@@ -1,4 +1,4 @@
-package pl.net.brach;
+package net.r4tech;
 
 import java.awt.Font;
 import java.awt.Graphics;

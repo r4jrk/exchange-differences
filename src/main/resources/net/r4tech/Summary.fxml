@@ -16,7 +16,7 @@
 <BorderPane stylesheets="@summarystyle.css"
             xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
-            fx:controller="pl.net.brach.SummaryController">
+            fx:controller="net.r4tech.SummaryController">
     <left>
         <HBox prefWidth="30.0" BorderPane.alignment="CENTER" />
     </left>

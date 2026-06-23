@@ -1,4 +1,4 @@
-package pl.net.brach;
+package net.r4tech;
 
 import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
@@ -37,7 +37,7 @@ import javax.print.attribute.standard.OrientationRequested;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pl.net.brach.commons.ui.Dialogs;
+import net.r4tech.commons.ui.Dialogs;
 
 public class SummaryController implements Initializable {
 
@@ -231,7 +231,7 @@ public class SummaryController implements Initializable {
         PrintRequestAttributeSet pras = new HashPrintRequestAttributeSet();
         pras.add(OrientationRequested.PORTRAIT);
         pras.add(new MediaPrintableArea(0, 0, LabelPrint.PRINT_PAGE_HEIGHT, LabelPrint.PRINT_PAGE_WIDTH, MediaPrintableArea.MM));
-        pras.add(new JobName(ExchangeDifferences.BRACHSOFT_TITLE + " - Dokument", null));
+        pras.add(new JobName(ExchangeDifferences.R4_TECH_TITLE + " - Dokument", null));
 
         PrinterJob printerJob = PrinterJob.getPrinterJob();
 

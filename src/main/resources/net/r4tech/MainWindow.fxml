@@ -20,12 +20,12 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane prefHeight="329.0"
+<BorderPane prefHeight="360.0"
             prefWidth="475.0"
             stylesheets="@style.css"
             xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
-            fx:controller="pl.net.brach.MainWindowController">
+            fx:controller="net.r4tech.MainWindowController">
    <left>
       <HBox prefHeight="229.0" prefWidth="20.0" BorderPane.alignment="CENTER" />
    </left>
@@ -33,9 +33,9 @@
       <HBox prefHeight="229.0" prefWidth="20.0" BorderPane.alignment="CENTER" />
    </right>
    <bottom>
-      <VBox prefHeight="20.0" prefWidth="530.0" BorderPane.alignment="CENTER">
-         <Label id="lFooter" opacity="0.2" prefHeight="17.0" prefWidth="487.0"
-                text="      Copyright © 2019 Rafał Jurek - jurek.rafal@outlook.com"/>
+      <VBox alignment="CENTER" prefHeight="20.0" prefWidth="530.0" BorderPane.alignment="CENTER">
+         <Label id="lFooter" alignment="CENTER" onMouseClicked="#footerClicked" opacity="0.2" prefHeight="17.0"
+                text="Copyright © 2019-2026 R4_TECH Rafał Jurek - contact@r4tech.net"/>
       </VBox>
    </bottom>
    <center>
@@ -102,9 +102,9 @@
       </AnchorPane>
    </center>
    <top>
-      <HBox alignment="CENTER" prefHeight="70.0" prefWidth="530.0" BorderPane.alignment="CENTER">
+      <HBox alignment="CENTER" prefHeight="95.0" prefWidth="530.0" BorderPane.alignment="CENTER">
          <Pane prefHeight="200.0" prefWidth="80.0"/>
-         <StackPane fx:id="bannerContainer" prefHeight="66.0" prefWidth="260.0"/>
+         <StackPane fx:id="bannerContainer" maxWidth="257.0" minWidth="257.0" prefWidth="257.0"/>
          <Label id="lMainHeader" prefHeight="30.0" prefWidth="311.0" text="Różnice kursowe">
             <font>
                <Font size="24.0"/>
